@@ -1,0 +1,5 @@
+project_name: end-to-end-ml-analytics-system
+target_column: Churn
+random_state: 42
+test_size: 0.2
+model_path: artifacts/model/model.pkl
