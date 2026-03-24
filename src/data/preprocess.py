@@ -5,11 +5,13 @@ from typing import Tuple
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
-
-ID_COLUMN = "customerID"
-ORIGINAL_TARGET_COLUMN = "Churn"
-TARGET_COLUMN = "Churn_binary"
-SENIOR_CITIZEN_COLUMN = "SeniorCitizen"
+from src.features.feature_schema import (
+    ID_COLUMN,
+    ORIGINAL_TARGET_COLUMN,
+    TARGET_COLUMN,
+    build_feature_schema_dict,
+    split_feature_types,
+)
 
 
 def split_features_and_target(
@@ -22,7 +24,8 @@ def split_features_and_target(
     Split the input dataframe into modeling features (X) and target (y).
 
     This function follows the exact feature/target separation rule used in
-    `02_feature_engineering.ipynb` and `03_model_experiments.ipynb`:
+    `02_feature_engineering.ipynb`, `03_model_experiments.ipynb`, and
+    the shared project feature schema:
     - exclude `customerID`
     - exclude original string target `Churn`
     - use `Churn_binary` as the modeling target
@@ -59,46 +62,6 @@ def split_features_and_target(
     y = df[target_col].copy()
 
     return X, y
-
-
-def get_feature_types(
-    X: pd.DataFrame,
-    senior_citizen_col: str = SENIOR_CITIZEN_COLUMN,
-) -> Tuple[list[str], list[str]]:
-    """
-    Separate numeric and categorical feature columns.
-
-    This function follows the exact rule used in the notebooks:
-    - numeric features are selected from int64/float64 columns
-    - categorical features are selected from object columns
-    - `SeniorCitizen` is treated as a categorical/binary feature,
-      even if it is numerically encoded
-
-    Parameters
-    ----------
-    X : pd.DataFrame
-        Modeling feature dataframe.
-    senior_citizen_col : str, default="SeniorCitizen"
-        Column that should be treated as categorical.
-
-    Returns
-    -------
-    Tuple[list[str], list[str]]
-        numeric_features, categorical_features
-    """
-    numeric_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
-    categorical_features = X.select_dtypes(include=["object"]).columns.tolist()
-
-    if senior_citizen_col in numeric_features:
-        numeric_features.remove(senior_citizen_col)
-
-    if senior_citizen_col in X.columns and senior_citizen_col not in categorical_features:
-        categorical_features.append(senior_citizen_col)
-
-    numeric_features = sorted(numeric_features)
-    categorical_features = sorted(categorical_features)
-
-    return numeric_features, categorical_features
 
 
 def split_train_valid(
@@ -147,34 +110,28 @@ def split_train_valid(
     return X_train, X_valid, y_train, y_valid
 
 
-def build_feature_schema(
-    X: pd.DataFrame,
-    target_col: str = TARGET_COLUMN,
-) -> dict:
+def summarize_preprocessing_inputs(X: pd.DataFrame) -> dict:
     """
-    Build a lightweight feature schema dictionary.
-
-    This mirrors the feature schema preview created in
-    `02_feature_engineering.ipynb`.
+    Build a lightweight preprocessing summary based on the shared feature schema.
 
     Parameters
     ----------
     X : pd.DataFrame
         Modeling feature dataframe.
-    target_col : str, default="Churn_binary"
-        Target column name.
 
     Returns
     -------
     dict
-        Dictionary containing numeric features, categorical features, and target.
+        Dictionary containing numeric and categorical feature counts.
     """
-    numeric_features, categorical_features = get_feature_types(X)
+    numeric_features, categorical_features = split_feature_types(X)
 
     return {
+        "n_features": int(X.shape[1]),
+        "n_numeric_features": len(numeric_features),
+        "n_categorical_features": len(categorical_features),
         "numeric_features": numeric_features,
         "categorical_features": categorical_features,
-        "target": target_col,
     }
 
 
@@ -183,15 +140,17 @@ if __name__ == "__main__":
 
     df = load_telco_dataset()
     X, y = split_features_and_target(df)
-    numeric_features, categorical_features = get_feature_types(X)
+    numeric_features, categorical_features = split_feature_types(X)
     X_train, X_valid, y_train, y_valid = split_train_valid(X, y)
-    feature_schema = build_feature_schema(X)
+    feature_schema = build_feature_schema_dict(X)
+    preprocessing_summary = summarize_preprocessing_inputs(X)
 
     print("Preprocessing split completed successfully.")
     print(f"X shape: {X.shape}")
     print(f"y shape: {y.shape}")
     print(f"X_train shape: {X_train.shape}")
     print(f"X_valid shape: {X_valid.shape}")
-    print(f"Number of numeric features: {len(numeric_features)}")
-    print(f"Number of categorical features: {len(categorical_features)}")
+    print(f"Number of numeric features: {preprocessing_summary['n_numeric_features']}")
+    print(f"Number of categorical features: {preprocessing_summary['n_categorical_features']}")
     print("Feature schema keys:", list(feature_schema.keys()))
+    print("Excluded columns:", feature_schema["excluded_columns"])

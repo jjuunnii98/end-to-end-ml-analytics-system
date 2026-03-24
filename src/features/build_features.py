@@ -1,55 +1,12 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-
-SENIOR_CITIZEN_COLUMN = "SeniorCitizen"
-
-
-def get_feature_types(
-    X: pd.DataFrame,
-    senior_citizen_col: str = SENIOR_CITIZEN_COLUMN,
-) -> Tuple[list[str], list[str]]:
-    """
-    Separate numeric and categorical feature columns.
-
-    This function follows the exact rule used in the notebooks:
-    - numeric features are selected from int64/float64 columns
-    - categorical features are selected from object columns
-    - `SeniorCitizen` is treated as a categorical/binary feature,
-      even if it is numerically encoded
-
-    Parameters
-    ----------
-    X : pd.DataFrame
-        Modeling feature dataframe.
-    senior_citizen_col : str, default="SeniorCitizen"
-        Column that should be treated as categorical.
-
-    Returns
-    -------
-    Tuple[list[str], list[str]]
-        numeric_features, categorical_features
-    """
-    numeric_features = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
-    categorical_features = X.select_dtypes(include=["object"]).columns.tolist()
-
-    if senior_citizen_col in numeric_features:
-        numeric_features.remove(senior_citizen_col)
-
-    if senior_citizen_col in X.columns and senior_citizen_col not in categorical_features:
-        categorical_features.append(senior_citizen_col)
-
-    numeric_features = sorted(numeric_features)
-    categorical_features = sorted(categorical_features)
-
-    return numeric_features, categorical_features
+from src.features.feature_schema import build_feature_schema_dict, split_feature_types
 
 
 def build_numeric_transformer() -> Pipeline:
@@ -96,10 +53,7 @@ def build_categorical_transformer() -> Pipeline:
     return categorical_transformer
 
 
-def build_preprocessor(
-    X: pd.DataFrame,
-    senior_citizen_col: str = SENIOR_CITIZEN_COLUMN,
-) -> ColumnTransformer:
+def build_preprocessor(X: pd.DataFrame) -> ColumnTransformer:
     """
     Build the full ColumnTransformer preprocessor.
 
@@ -107,18 +61,13 @@ def build_preprocessor(
     ----------
     X : pd.DataFrame
         Modeling feature dataframe.
-    senior_citizen_col : str, default="SeniorCitizen"
-        Column that should be treated as categorical.
 
     Returns
     -------
     ColumnTransformer
         Combined preprocessing transformer for numeric and categorical features.
     """
-    numeric_features, categorical_features = get_feature_types(
-        X,
-        senior_citizen_col=senior_citizen_col,
-    )
+    numeric_features, categorical_features = split_feature_types(X)
 
     numeric_transformer = build_numeric_transformer()
     categorical_transformer = build_categorical_transformer()
@@ -217,6 +166,38 @@ def to_processed_dataframe(
     return pd.DataFrame(processed_array, columns=feature_names, index=index)
 
 
+def summarize_built_features(
+    preprocessor: ColumnTransformer,
+    X_train_processed,
+    X_valid_processed,
+) -> dict:
+    """
+    Build a lightweight summary of the transformed feature outputs.
+
+    Parameters
+    ----------
+    preprocessor : ColumnTransformer
+        Fitted preprocessing transformer.
+    X_train_processed : array-like
+        Processed training feature matrix.
+    X_valid_processed : array-like
+        Processed validation feature matrix.
+
+    Returns
+    -------
+    dict
+        Summary of transformed feature shapes and feature count.
+    """
+    feature_names = get_transformed_feature_names(preprocessor)
+
+    return {
+        "n_transformed_features": len(feature_names),
+        "train_shape": tuple(X_train_processed.shape),
+        "valid_shape": tuple(X_valid_processed.shape),
+        "feature_names": feature_names,
+    }
+
+
 if __name__ == "__main__":
     from src.data.load_data import load_telco_dataset
     from src.data.preprocess import split_features_and_target, split_train_valid
@@ -224,6 +205,7 @@ if __name__ == "__main__":
     df = load_telco_dataset()
     X, y = split_features_and_target(df)
     X_train, X_valid, y_train, y_valid = split_train_valid(X, y)
+    feature_schema = build_feature_schema_dict(X)
 
     preprocessor = build_preprocessor(X)
     X_train_processed, X_valid_processed = fit_transform_features(
@@ -232,12 +214,18 @@ if __name__ == "__main__":
         X_valid,
     )
     feature_names = get_transformed_feature_names(preprocessor)
+    feature_summary = summarize_built_features(
+        preprocessor,
+        X_train_processed,
+        X_valid_processed,
+    )
     X_train_df = to_processed_dataframe(X_train_processed, feature_names, X_train.index)
     X_valid_df = to_processed_dataframe(X_valid_processed, feature_names, X_valid.index)
 
     print("Feature building completed successfully.")
-    print(f"Processed train shape: {X_train_processed.shape}")
-    print(f"Processed valid shape: {X_valid_processed.shape}")
-    print(f"Number of transformed features: {len(feature_names)}")
+    print(f"Processed train shape: {feature_summary['train_shape']}")
+    print(f"Processed valid shape: {feature_summary['valid_shape']}")
+    print(f"Number of transformed features: {feature_summary['n_transformed_features']}")
     print(f"Nulls in processed train data: {X_train_df.isnull().sum().sum()}")
     print(f"Nulls in processed valid data: {X_valid_df.isnull().sum().sum()}")
+    print("Feature schema keys:", list(feature_schema.keys()))
