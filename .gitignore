@@ -4,3 +4,30 @@
 # Keep deployment-required model artifacts and metrics tracked in Git.
 # Ignore only generated figures by default.
 artifacts/figures/
+
+# =========================
+# OS / System files
+# =========================
+.DS_Store
+
+# =========================
+# Data (local only)
+# =========================
+data/
+
+# =========================
+# Python cache
+# =========================
+__pycache__/
+*.py[cod]
+
+# =========================
+# Pytest cache
+# =========================
+.pytest_cache/
+
+# =========================
+# Virtual environment
+# =========================
+.venv/
+venv/
