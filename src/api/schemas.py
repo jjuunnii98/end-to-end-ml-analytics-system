@@ -17,29 +17,29 @@ class ChurnPredictionRequest(BaseModel):
     (excluding id/target columns).
     """
 
-    gender: str = Field(..., example="Female")
-    SeniorCitizen: int = Field(..., example=0)
-    Partner: str = Field(..., example="Yes")
-    Dependents: str = Field(..., example="No")
-    tenure: int = Field(..., example=12)
+    gender: str = Field(..., json_schema_extra={"example": "Female"})
+    SeniorCitizen: int = Field(..., json_schema_extra={"example": 0})
+    Partner: str = Field(..., json_schema_extra={"example": "Yes"})
+    Dependents: str = Field(..., json_schema_extra={"example": "No"})
+    tenure: int = Field(..., json_schema_extra={"example": 12})
 
-    PhoneService: str = Field(..., example="Yes")
-    MultipleLines: str = Field(..., example="No")
+    PhoneService: str = Field(..., json_schema_extra={"example": "Yes"})
+    MultipleLines: str = Field(..., json_schema_extra={"example": "No"})
 
-    InternetService: str = Field(..., example="Fiber optic")
-    OnlineSecurity: str = Field(..., example="No")
-    OnlineBackup: str = Field(..., example="Yes")
-    DeviceProtection: str = Field(..., example="No")
-    TechSupport: str = Field(..., example="No")
-    StreamingTV: str = Field(..., example="Yes")
-    StreamingMovies: str = Field(..., example="Yes")
+    InternetService: str = Field(..., json_schema_extra={"example": "Fiber optic"})
+    OnlineSecurity: str = Field(..., json_schema_extra={"example": "No"})
+    OnlineBackup: str = Field(..., json_schema_extra={"example": "Yes"})
+    DeviceProtection: str = Field(..., json_schema_extra={"example": "No"})
+    TechSupport: str = Field(..., json_schema_extra={"example": "No"})
+    StreamingTV: str = Field(..., json_schema_extra={"example": "Yes"})
+    StreamingMovies: str = Field(..., json_schema_extra={"example": "Yes"})
 
-    Contract: str = Field(..., example="Month-to-month")
-    PaperlessBilling: str = Field(..., example="Yes")
-    PaymentMethod: str = Field(..., example="Electronic check")
+    Contract: str = Field(..., json_schema_extra={"example": "Month-to-month"})
+    PaperlessBilling: str = Field(..., json_schema_extra={"example": "Yes"})
+    PaymentMethod: str = Field(..., json_schema_extra={"example": "Electronic check"})
 
-    MonthlyCharges: float = Field(..., example=89.85)
-    TotalCharges: float = Field(..., example=1081.25)
+    MonthlyCharges: float = Field(..., json_schema_extra={"example": 89.85})
+    TotalCharges: float = Field(..., json_schema_extra={"example": 1081.25})
 
 
 # =========================
