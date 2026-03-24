@@ -1,9 +1,8 @@
 # =========================
 # Artifacts (모델/결과)
 # =========================
-# Keep deployment-required model artifacts and metrics tracked in Git.
-# Ignore only generated figures by default.
-artifacts/figures/
+# Keep deployment-required model artifacts, metrics, and README visuals tracked in Git.
+# If temporary visualization files are created later, ignore them individually.
 
 # =========================
 # OS / System files
