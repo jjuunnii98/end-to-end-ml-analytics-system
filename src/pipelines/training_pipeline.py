@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
+
+import joblib
 
 from src.data.load_data import load_telco_dataset, summarize_dataset
 from src.data.validate_data import validate_dataset
@@ -22,6 +25,9 @@ from src.models.evaluate import summarize_evaluation
 
 DEFAULT_MODEL_NAME = "random_forest"
 DEFAULT_THRESHOLD = 0.3
+DEFAULT_ARTIFACTS_DIR = Path("artifacts")
+DEFAULT_MODEL_DIR = DEFAULT_ARTIFACTS_DIR / "model"
+DEFAULT_METRICS_DIR = DEFAULT_ARTIFACTS_DIR / "metrics"
 
 
 def _validate_pipeline_inputs(
@@ -85,10 +91,100 @@ def _build_pipeline_metadata(
     }
 
 
+def _ensure_artifact_directories(
+    model_dir: Path = DEFAULT_MODEL_DIR,
+    metrics_dir: Path = DEFAULT_METRICS_DIR,
+) -> None:
+    """
+    Ensure artifact output directories exist.
+    """
+    model_dir.mkdir(parents=True, exist_ok=True)
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _save_json_artifact(payload: dict[str, Any], output_path: Path) -> Path:
+    """
+    Save a JSON artifact to disk.
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return output_path
+
+
+def _normalize_for_json(value: Any) -> Any:
+    """
+    Convert numpy/scalar-like values into JSON-serializable Python values.
+    """
+    if isinstance(value, dict):
+        return {k: _normalize_for_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_normalize_for_json(v) for v in value]
+    if isinstance(value, tuple):
+        return [_normalize_for_json(v) for v in value]
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except Exception:
+            return value
+    return value
+
+
+def save_training_artifacts(
+    model,
+    preprocessor,
+    evaluation_summary: dict[str, Any],
+    model_name: str,
+    model_dir: Path = DEFAULT_MODEL_DIR,
+    metrics_dir: Path = DEFAULT_METRICS_DIR,
+) -> dict[str, str]:
+    """
+    Save model, preprocessor, and evaluation summary artifacts.
+
+    Parameters
+    ----------
+    model : object
+        Fitted sklearn-compatible model.
+    preprocessor : object
+        Fitted preprocessing transformer.
+    evaluation_summary : dict[str, Any]
+        Evaluation summary dictionary.
+    model_name : str
+        Model name used for file naming.
+    model_dir : Path, default=artifacts/model
+        Directory for serialized model artifacts.
+    metrics_dir : Path, default=artifacts/metrics
+        Directory for evaluation artifacts.
+
+    Returns
+    -------
+    dict[str, str]
+        Paths to the saved artifacts.
+    """
+    _ensure_artifact_directories(model_dir=model_dir, metrics_dir=metrics_dir)
+
+    model_path = model_dir / f"{model_name}_model.joblib"
+    preprocessor_path = model_dir / f"{model_name}_preprocessor.joblib"
+    metrics_path = metrics_dir / f"{model_name}_evaluation.json"
+
+    joblib.dump(model, model_path)
+    joblib.dump(preprocessor, preprocessor_path)
+    _save_json_artifact(_normalize_for_json(evaluation_summary), metrics_path)
+
+    return {
+        "model_path": str(model_path),
+        "preprocessor_path": str(preprocessor_path),
+        "metrics_path": str(metrics_path),
+    }
+
+
 def run_training_pipeline(
     model_name: str = DEFAULT_MODEL_NAME,
     custom_threshold: float = DEFAULT_THRESHOLD,
     data_path: str | Path | None = None,
+    save_artifacts: bool = True,
+    model_dir: Path = DEFAULT_MODEL_DIR,
+    metrics_dir: Path = DEFAULT_METRICS_DIR,
     **model_kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -104,7 +200,8 @@ def run_training_pipeline(
     6. Transform train/validation features
     7. Train selected model
     8. Evaluate trained model
-    9. Return pipeline summary artifacts
+    9. Save model/preprocessor/metrics artifacts
+    10. Return pipeline summary artifacts
 
     Parameters
     ----------
@@ -114,6 +211,12 @@ def run_training_pipeline(
         Threshold used for threshold-level evaluation.
     data_path : str | Path | None, default=None
         Optional custom path to the Telco CSV file.
+    save_artifacts : bool, default=True
+        Whether to save the trained model, preprocessor, and evaluation summary.
+    model_dir : Path, default=artifacts/model
+        Directory used to save serialized model artifacts.
+    metrics_dir : Path, default=artifacts/metrics
+        Directory used to save evaluation artifacts.
     **model_kwargs : Any
         Additional keyword arguments passed to the model builder.
 
@@ -177,7 +280,18 @@ def run_training_pipeline(
         custom_threshold=custom_threshold,
     )
 
-    # 9. Return all core artifacts for downstream saving / deployment
+    artifact_paths: dict[str, str] = {}
+    if save_artifacts:
+        artifact_paths = save_training_artifacts(
+            model=model,
+            preprocessor=preprocessor,
+            evaluation_summary=evaluation_summary,
+            model_name=model_name,
+            model_dir=model_dir,
+            metrics_dir=metrics_dir,
+        )
+
+    # 10. Return all core artifacts for downstream saving / deployment
     return {
         "pipeline_metadata": pipeline_metadata,
         "dataset_summary": dataset_summary,
@@ -186,6 +300,7 @@ def run_training_pipeline(
         "built_feature_summary": built_feature_summary,
         "model_summary": model_summary,
         "evaluation_summary": evaluation_summary,
+        "artifact_paths": artifact_paths,
         "dataframe": df,
         "X_train": X_train,
         "X_valid": X_valid,
@@ -223,3 +338,6 @@ if __name__ == "__main__":
 
     print("\nEvaluation summary:")
     print(pipeline_results["evaluation_summary"])
+
+    print("\nArtifact paths:")
+    print(pipeline_results["artifact_paths"])
