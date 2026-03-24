@@ -244,9 +244,9 @@ def run_inference(
     )
 
     return {
-        "input_shape": tuple(input_df.shape),
+        "input_shape": list(input_df.shape),
         "input_columns": input_df.columns.tolist(),
-        "transformed_shape": tuple(transformed_input.shape),
+        "transformed_shape": list(transformed_input.shape),
         "threshold": threshold,
         "model_labels": [int(label) for label in model_labels],
         "probabilities": [float(probability) for probability in probabilities],

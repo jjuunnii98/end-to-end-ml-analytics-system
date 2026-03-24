@@ -238,8 +238,10 @@ def run_inference_pipeline(
     )
 
     return {
-        "inference_metadata": inference_metadata,
-        "model_context": model_context,
+        "model_name": inference_metadata["model_name"],
+        "threshold": inference_metadata["threshold"],
+        "artifact_source": model_context["artifact_source"],
+        "artifact_paths": model_context["artifact_paths"],
         "model_summary": model_summary,
         "prediction_results": prediction_results,
     }
